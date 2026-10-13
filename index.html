@@ -1,710 +1,989 @@
-<!DOCTYPE html>
-<html lang="en-us">
+<!doctype html>
+<html lang="en">
 <head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gautam Kumar</title>
+<meta name="description" content="Gautam Kumar: datacenter networking and distributed systems. A fly-through of a datacenter fabric with Swift, PLB, Aequitas, Firefly/Sundial, Big Packets and Gemini.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305070b'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%232dd4bf'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#05070b;
+  --ink:#eef2f6;
+  --ink-2:#c7d0da;
+  --muted:#8e9bab;
+  --faint:#5b6878;
+  --line:rgba(255,255,255,.09);
+  --line-2:rgba(255,255,255,.16);
+  --glass:rgba(9,13,20,.64);
+  --serif:"Instrument Serif","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --swift:#2dd4bf; --plb:#fb923c; --aeq:#f472b6; --ff:#fcd981; --big:#a3e635; --gem:#a78bfa;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink)}
+body{font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+a{color:inherit}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid #7dd3fc;outline-offset:3px;border-radius:6px}
 
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="theme" content="hugo-academic">
-  <meta name="generator" content="Hugo 0.20.2" />
-  <meta name="author" content="Waleed Reda">
-  <meta name="description" content="PhD student in Computer Science">
+/* ---------- stage ---------- */
+#stage{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:grab;
+  background:radial-gradient(120% 90% at 62% 58%,#0b1420 0%,#06090f 55%,#04060a 100%)}
+#stage.drag{cursor:grabbing}
+.vignette{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(48% 52% at 14% 18%,rgba(4,6,10,.82) 0%,rgba(4,6,10,.5) 45%,transparent 100%),radial-gradient(130% 100% at 60% 55%,transparent 55%,rgba(2,3,6,.72) 100%),
+             linear-gradient(180deg,rgba(3,5,9,.55) 0%,transparent 26%,transparent 78%,rgba(3,5,9,.6) 100%)}
 
-  
-  
-  
-    
-  
-  
-    
-    
-    <link rel="stylesheet" href="/css/highlight.min.css">
-    
-  
-  <link rel="stylesheet" href="/css/bootstrap.min.css">
-  <link rel="stylesheet" href="/css/font-awesome.min.css">
-  <link rel="stylesheet" href="/css/academicons.min.css">
-  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:400,700%7CMerriweather%7CRoboto+Mono">
-  <link rel="stylesheet" href="/css/hugo-academic.css">
-  
+/* ---------- masthead ---------- */
+.mast{position:fixed;left:44px;top:38px;max-width:620px;pointer-events:none;z-index:5}
+.eyebrow{white-space:nowrap;font:500 11px/1.5 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+.eyebrow b{color:#7dd3fc;font-weight:500}
+h1{font:400 84px/.92 var(--serif);letter-spacing:-.015em;margin:0;color:#f6f8fb;
+  text-shadow:0 0 40px rgba(125,211,252,.18)}
+h1 i{font-style:italic;color:#dce9f5}
+.lede{font:400 16px/1.55 var(--sans);color:var(--ink-2);margin:18px 0 0;max-width:470px}
+.facts{display:flex;flex-wrap:wrap;gap:6px 18px;margin:18px 0 0;padding:0;list-style:none;
+  font:400 11.5px/1.5 var(--mono);color:var(--muted);letter-spacing:.02em}
+.facts li{position:relative;padding-left:12px}
+.facts li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;background:var(--faint)}
+.facts li.best{color:var(--ff)}
+.facts li.best::before{background:var(--ff);box-shadow:0 0 8px var(--ff)}
 
-  <link rel="alternate" href="https://gautam-kumar.github.io/index.xml" type="application/rss+xml" title="Gautam Kumar">
-  <link rel="feed" href="https://gautam-kumar.github.io/index.xml" type="application/rss+xml" title="Gautam Kumar">
+/* ---------- top-right controls ---------- */
+.top{position:fixed;right:28px;top:30px;display:flex;gap:10px;z-index:8}
+.pill{display:inline-flex;align-items:center;gap:9px;height:36px;padding:0 16px;border-radius:999px;
+  background:rgba(12,17,26,.55);border:1px solid var(--line-2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  font:500 12.5px/1 var(--sans);letter-spacing:.01em;color:var(--ink);transition:background .2s,border-color .2s}
+.pill:hover{background:rgba(30,40,56,.7);border-color:rgba(255,255,255,.3)}
+.pill svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6}
 
-  <link rel="icon" type="image/png" href="/img/icon.png">
-  <link rel="apple-touch-icon" type="image/png" href="/img/apple-touch-icon.png">
+/* ---------- rail ---------- */
+.rail{position:fixed;right:28px;top:50%;transform:translateY(-50%);z-index:6;width:236px;
+  transition:opacity .35s,transform .45s cubic-bezier(.2,.7,.2,1)}
+.mast .eyebrow,.mast .lede,.mast .facts{transition:opacity .45s}
+body.sheet .mast .lede,body.sheet .mast .facts{opacity:0}
+.rail.away{opacity:0;transform:translate(24px,-50%);pointer-events:none}
+.rail h2{font:500 10.5px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin:0 0 12px 14px}
+.rail ul{list-style:none;margin:0;padding:0}
+.rail li+li{margin-top:2px}
+.ri{display:grid;grid-template-columns:18px 1fr;align-items:baseline;width:100%;text-align:left;padding:8px 14px;border-radius:10px;
+  transition:background .2s}
+.ri:hover,.ri.on{background:rgba(255,255,255,.055)}
+.ri .d{width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);transform:translateY(-1px)}
+.ri b{font:500 14px/1.3 var(--sans);color:var(--ink);display:block}
+.ri em{font:400 11px/1.4 var(--mono);color:var(--muted);font-style:normal;letter-spacing:.02em}
+.rail .sep{height:1px;background:var(--line);margin:12px 14px}
+.ri.plain{grid-template-columns:18px 1fr}
+.ri.plain .d{background:transparent;box-shadow:none;border:1px solid var(--muted);width:7px;height:7px}
 
-  <link rel="canonical" href="https://gautam-kumar.github.io/">
+/* ---------- foot ---------- */
+.foot{position:fixed;left:44px;bottom:30px;z-index:5;pointer-events:none;
+  font:400 11px/1.6 var(--mono);color:var(--faint);letter-spacing:.03em;max-width:520px}
+.foot span{color:var(--muted)}
 
-  
+/* ---------- labels in 3D ---------- */
+#labels{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:10px;
+  will-change:transform;white-space:nowrap;transition:opacity .3s}
+.lbl .p{position:relative;width:12px;height:12px;flex:none;margin-left:-6px;margin-top:-6px}
+.lbl .p::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c),0 0 24px var(--c)}
+.lbl .p::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid var(--c);opacity:.55;animation:ping 2.6s ease-out infinite}
+@keyframes ping{0%{transform:scale(.5);opacity:.7}100%{transform:scale(1.7);opacity:0}}
+.lbl .t{margin-top:-6px;display:flex;align-items:baseline;gap:8px;padding:5px 11px 6px;border-radius:8px;
+  background:rgba(6,9,14,.58);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:border-color .2s,background .2s}
+.lbl:hover .t,.lbl.on .t{border-color:var(--c);background:rgba(10,15,22,.8)}
+.lbl b{font:500 13px/1.2 var(--sans);color:#fff}
+.lbl em{font:400 10.5px/1.2 var(--mono);color:var(--c);font-style:normal;letter-spacing:.03em}
+.lbl.hide{opacity:0;pointer-events:none}
+body.reading #labels{opacity:0}
 
-  <title>Gautam Kumar</title>
+/* ---------- glass panel ---------- */
+.panel{position:fixed;z-index:9;right:24px;top:24px;bottom:24px;width:420px;display:flex;flex-direction:column;
+  background:var(--glass);border:1px solid var(--line-2);border-radius:20px;
+  backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06);
+  transform:translateX(30px);opacity:0;pointer-events:none;
+  transition:opacity .4s ease,transform .55s cubic-bezier(.2,.7,.2,1)}
+.panel.open{transform:none;opacity:1;pointer-events:auto}
+.panel::before{content:"";position:absolute;left:28px;right:28px;top:0;height:1px;background:linear-gradient(90deg,transparent,var(--c,#7dd3fc),transparent);opacity:.8}
+.phead{display:flex;justify-content:space-between;align-items:center;padding:18px 18px 0 28px}
+.phead .k{font:500 10.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--c,#7dd3fc)}
+.x{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);color:var(--muted)}
+.x:hover{color:#fff;border-color:var(--line-2)}
+.x svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.7;fill:none}
+.pbody{overflow:auto;padding:8px 28px 24px;flex:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent}
+.pbody h2{font:400 46px/1 var(--serif);margin:10px 0 6px;letter-spacing:-.01em;color:#fff}
+.pbody .role{font:500 12.5px/1.5 var(--sans);color:var(--ink-2);margin:0 0 18px}
+.pbody .role span{color:var(--muted)}
+.pbody p{color:var(--ink-2);margin:0 0 14px;font-size:15px;line-height:1.65}
+.pbody p strong{color:#fff;font-weight:600}
+.scene{margin:18px 0 22px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid var(--line);
+  font:400 12px/1.6 var(--mono);color:var(--muted)}
+.scene i{font-style:normal;color:var(--c,#7dd3fc)}
+.pbody h3{font:500 10.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:22px 0 12px}
+.refs{list-style:none;margin:0;padding:0}
+.refs li{padding:10px 0;border-top:1px solid var(--line)}
+.refs li:first-child{border-top:0;padding-top:2px}
+.refs .tt{display:block;color:#fff;font-weight:500;font-size:14px;line-height:1.45}
+.refs .mt{display:block;font:400 11.5px/1.6 var(--mono);color:var(--muted);margin-top:3px}
+.refs .ds{display:block;font-size:13px;color:var(--muted);margin-top:2px;line-height:1.5}
+.refs u{text-decoration:none;color:var(--ink)}
+.tag{display:inline-block;font:500 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border-radius:5px;
+  border:1px solid var(--ff);color:var(--ff);margin-left:6px;vertical-align:2px}
+.lk{color:#7dd3fc;text-decoration:none;border-bottom:1px solid rgba(125,211,252,.35)}
+.lk:hover{border-bottom-color:#7dd3fc}
+.pfoot{display:flex;justify-content:space-between;gap:10px;padding:14px 18px 18px;border-top:1px solid var(--line)}
+.pfoot button{font:500 12px/1 var(--sans);color:var(--muted);padding:9px 12px;border-radius:9px;border:1px solid var(--line)}
+.pfoot button:hover{color:#fff;border-color:var(--line-2)}
+.contact-list{list-style:none;margin:6px 0 0;padding:0}
+.contact-list li{border-top:1px solid var(--line)}
+.contact-list li:first-child{border-top:0}
+.contact-list a{display:flex;justify-content:space-between;align-items:center;padding:14px 2px;text-decoration:none;color:#fff;font-size:15px}
+.contact-list a span{font:400 12px/1 var(--mono);color:var(--muted)}
+.contact-list a:hover span{color:#7dd3fc}
 
+/* ---------- read as text ---------- */
+.reader{position:fixed;inset:0;z-index:20;background:rgba(3,5,8,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  overflow:auto;opacity:0;pointer-events:none;transition:opacity .35s}
+.reader.open{opacity:1;pointer-events:auto}
+.reader .col{max-width:720px;margin:0 auto;padding:72px 32px 96px}
+.reader .close{position:fixed;top:24px;right:24px}
+.reader h2{font:400 56px/1 var(--serif);margin:0 0 8px;color:#fff}
+.reader .sub{font:500 11px/1.6 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 24px}
+.reader h3{font:500 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#7dd3fc;margin:44px 0 16px;padding-top:20px;border-top:1px solid var(--line)}
+.reader p{color:var(--ink-2);margin:0 0 14px;line-height:1.7;font-size:16px}
+.reader dl{margin:0}
+.reader dt{font-weight:600;color:#fff;margin-top:18px}
+.reader dt small{font:400 12px/1 var(--mono);color:var(--muted);margin-left:8px}
+.reader dd{margin:4px 0 0;color:var(--ink-2);line-height:1.65}
+.reader ul.l{margin:0;padding:0;list-style:none}
+.reader ul.l li{padding:8px 0;color:var(--ink-2);border-top:1px solid var(--line);line-height:1.55}
+.reader ul.l li:first-child{border-top:0}
+.reader ul.l b{color:#fff;font-weight:600}
+.reader .m{display:block;font:400 12px/1.6 var(--mono);color:var(--muted)}
+.reader .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.reader .links a{padding:9px 14px;border:1px solid var(--line-2);border-radius:999px;text-decoration:none;font-size:14px}
+.reader .links a:hover{border-color:#7dd3fc;color:#7dd3fc}
+
+/* ---------- mobile ---------- */
+.chips{display:none}
+@media (max-width:760px){
+  .mast{left:18px;right:18px;top:22px;max-width:none}
+  .eyebrow{white-space:normal;font-size:9.5px;letter-spacing:.12em;margin:0 0 10px;max-width:250px}
+  h1{font-size:50px}
+  .lede{font-size:13.5px;margin-top:12px;max-width:340px}
+  .facts{font-size:10px;gap:4px 12px;margin-top:12px}
+  .top{right:16px;top:18px}
+  .pill{height:32px;padding:0 12px;font-size:12px}
+  .rail{display:none}
+  .foot{left:18px;right:18px;bottom:calc(74px + env(safe-area-inset-bottom));font-size:9.5px}
+  .foot .hint{display:none}
+  .chips{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:7;gap:8px;overflow-x:auto;overflow-y:hidden;
+    padding:12px 16px calc(14px + env(safe-area-inset-bottom));scrollbar-width:none;
+    background:linear-gradient(180deg,transparent,rgba(3,5,9,.85) 40%)}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:999px;
+    background:rgba(12,17,26,.72);border:1px solid var(--line-2);font:500 13px/1 var(--sans);color:#fff;white-space:nowrap}
+  .chip i{width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+  .lbl em{display:none}
+  .lbl .t{padding:4px 9px 5px}
+  .lbl b{font-size:12px}
+  .panel{left:10px;right:10px;top:auto;bottom:10px;width:auto;max-height:62vh;transform:translateY(30px);border-radius:18px}
+  .panel.open{transform:none}
+  .pbody{padding:4px 20px 18px}
+  .phead{padding:14px 12px 0 20px}
+  .pbody h2{font-size:38px}
+  .pfoot{padding:10px 12px 12px}
+  .reader .col{padding:64px 18px 80px}
+  .reader h2{font-size:44px}
+  body.sheet .chips{opacity:0;pointer-events:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+}
+body.nogl #stage{background:radial-gradient(90% 70% at 62% 60%,#10243a 0%,#08111c 45%,#04060a 100%)}
+.nogl-note{display:none}
+body.nogl .nogl-note{display:block;color:var(--muted)}
+</style>
 </head>
-<body id="top" data-spy="scroll" data-target="#navbar-main" data-offset="71">
+<body>
+<canvas id="stage" aria-label="Interactive 3D illustration of a datacenter network fabric. Use the project list or Read as text for the same content." role="img"></canvas>
+<div class="vignette"></div>
+<div id="labels" aria-hidden="false"></div>
 
-<nav class="navbar navbar-default navbar-fixed-top" id="navbar-main">
-  <div class="container">
+<header class="mast">
+  <p class="eyebrow">Distributed Systems &amp; Networking · <b>Infrastructure for Large-Scale AI</b></p>
+  <h1>Gautam <i>Kumar</i></h1>
+  <p class="lede">A decade at Google building datacenter networking and distributed systems across millions of servers, from research to production.</p>
+  <ul class="facts">
+    <li>Google, 2016 to 2026</li>
+    <li>25+ papers</li>
+    <li>10+ patents filed, 5+ granted</li>
+    <li class="best">Best Paper, ACM SIGCOMM 2020</li>
+  </ul>
+  <p class="nogl-note">The 3D fabric could not start in this browser. Everything is available from the list or Read as text.</p>
+</header>
 
-    
-    <div class="navbar-header">
-      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
-              data-target=".navbar-collapse" aria-expanded="false">
-        <span class="sr-only">Toggle navigation</span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-      </button>
-      <a class="navbar-brand" href="/">Gautam Kumar</a>
-    </div>
+<div class="top">
+  <button class="pill" id="readBtn" aria-haspopup="dialog">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h7"/></svg>Read as text
+  </button>
+</div>
 
-    
-    <div class="collapse navbar-collapse">
-
-      
-      <ul class="nav navbar-nav navbar-right">
-        
-
-        
-
-        <li class="nav-item">
-          <a href="/#about" data-target="#about">
-            
-            <span>Home</span>
-          </a>
-        </li>
-
-        
-        
-
-        
-
-        <li class="nav-item">
-          <a href="/#publications_selected" data-target="#publications_selected">
-            
-            <span>Publications</span>
-          </a>
-        </li>
-
-   
-        <li class="nav-item">
-          <a href="/#contact" data-target="#contact">
-            
-            <span>Contact</span>
-          </a>
-        </li>
-
-        
-        
-
-        
-      </ul>
-
-    </div>
-  </div>
+<nav class="rail" id="rail" aria-label="Projects in the fabric">
+  <h2>In the fabric</h2>
+  <ul id="railList"></ul>
+  <div class="sep"></div>
+  <ul>
+    <li><button class="ri plain" data-open="pubs"><i class="d"></i><span><b>Papers &amp; patents</b><em>7 papers · 6 patents · awards</em></span></button></li>
+    <li><button class="ri plain" data-open="contact"><i class="d"></i><span><b>Contact</b><em>email · LinkedIn · Scholar · GitHub</em></span></button></li>
+  </ul>
 </nav>
 
-
-
-<span id="homepage" style="display: none"></span>
-
-
-
-  
-  
-  <section id="about" class="home-section">
-    <div class="container">
-      
-
-
-
-<div class="row" itemprop="author" itemscope itemtype="http://schema.org/Person" itemref="person-email person-address">
-  <div class="col-xs-12 col-md-4">
-    <div id="profile">
-
-      
-      <div class="portrait" style="background-image: url('/img/portrait.jpg');">
-      </div>
-      <meta itemprop="image" content="/img/portrait.jpg">
-      
-
-      <div class="portrait-title">
-        <h2 itemprop="name">Gautam Kumar</h2>
-        <h3 itemprop="jobTitle">Senior Software Engineer</h3>
-        
-        <h3 itemprop="worksFor" itemscope itemtype="http://schema.org/Organization">
-          
-            <span itemprop="name">Google</span>
-          
-        </h3>
-        
-      </div>
-
-      <link itemprop="url" href="https://gautam-kumar.github.io/">
-
-      <ul class="social-icon" aria-hidden="true">
-        
-        
-        <li>
-          <a itemprop="sameAs" href="mailto:wfhsr@kth.se" target="_blank">
-            <i class="fa fa-envelope big-icon"></i>
-          </a>
-        </li>
-        
-        
-        <li>
-          <a itemprop="sameAs" href="https://scholar.google.se/citations?user=HfibOt0AAAAJ" target="_blank">
-            <i class="ai ai-google-scholar big-icon"></i>
-          </a>
-        </li>
-        
-        
-        <li>
-          <a itemprop="sameAs" href="//github.com/wreda" target="_blank">
-            <i class="fa fa-github big-icon"></i>
-          </a>
-        </li>
-        
-      </ul>
-
-    </div>
-  </div>
-  <div class="col-xs-12 col-md-8" itemprop="description">
-
-    
-
-<h1 id="biography">Biography</h1>
-
-<p>I&rsquo;m a Software Engineer working on Network Infrastructure in Google Cloud. My interests span across all of networking; but I spend most of my time thinking about how can we enable our networks to provide even lower-latency and higher-throughput while preserving isolation across a large number of applications that need to be supported at Google.</p>
-
-<p></p>
-
-
-    <div class="row">
-
-      
-      <div class="col-sm-5">
-        <h3>Interests</h3>
-        <ul class="ul-interests">
-          
-          <li>Datacenter Networks</li>
-          
-          <li>Congestion Control</li>
-          
-          <li>Application Performance Isolation</li>
-          
-        </ul>
-      </div>
-      
-
-      
-      <div class="col-sm-7">
-        <h3>Education</h3>
-        <ul class="ul-edu fa-ul">
-          
-          <li>
-            <i class="fa-li fa fa-graduation-cap"></i>
-            <div class="description">
-              <p class="course">MS in Computer Science</p>
-              <p class="institution">University of California at Berkeley</p>
-              <p class="advisors">Advised by Prof. Ion Stoica and Prof. Sylvia Ratnasamy</p>
-            </div>
-            <div class="description">
-              <p class="course">B.Tech. in Computer Science</p>
-              <p class="institution">IIT Kharagpur</p>
-            </div>
-          </li>
-          
-        </ul>
-      </div>
-      
-
-    </div>
-  </div>
-</div>
-
-    </div>
-  </section>
-
-  
-  
-  <section id="publications_selected" class="home-section">
-    <div class="container">
-      
-
-
-
-<div class="row">
-  <div class="col-xs-12 col-md-4 section-heading">
-    <h1>Selected Publications</h1>
-    
-  </div>
-  <div class="col-xs-12 col-md-8">
-    
-
-    
-    
-    <div class="pub-list-item" itemscope itemtype="http://schema.org/CreativeWork">
-  <div class="row">
-
-    
-
-    <div class="col-md-12">
-
-    
-
-      <h3 class="article-title" itemprop="name">
-        <a href="https://wreda.github.io/publication/rein/" itemprop="url">Rein: Taming Tail Latency in Key-Value Stores via Multiget Scheduling</a>
-      </h3>
-
-      <div class="pub-abstract" itemprop="text">
-        
-         
-        
-      </div>
-
-      <div class="pub-authors" itemprop="author">
-        
-        W Reda, M Canini, L Suresh, D Kostic, S Braithwaite
-        
-      </div>
-
-      <div class="pub-publication">
-        
-        EuroSys&rsquo;17
-        
-      </div>
-
-      <div class="pub-links">
-        
-
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="https://wreda.github.io/publication/rein/">
-  Details
-</a>
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="https://mcanini.github.io/papers/rein.eurosys17.pdf">
-  PDF
-</a>
-
-
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="https://github.com/wreda/cassandra-rein">
-  Code
-</a>
-
-
-
-
-
-      </div>
-
-    </div>
-  </div>
-</div>
-
-    
-    
-
-  </div>
-</div>
-
-    </div>
-  </section>
-
-  
-  
-  <section id="publications" class="home-section">
-    <div class="container">
-      
-
-
-
-
-<div class="row">
-  <div class="col-xs-12 col-md-4 section-heading">
-    <h1>Recent Publications</h1>
-    
-    
-  </div>
-  <div class="col-xs-12 col-md-8">
-    
-
-    
-    
-    <div class="pub-list-item" itemscope itemtype="http://schema.org/CreativeWork">
-  <div class="row">
-
-    
-
-    <div class="col-md-12">
-
-    
-
-      <h3 class="article-title" itemprop="name">
-        <a href="https://wreda.github.io/publication/rein/" itemprop="url">Rein: Taming Tail Latency in Key-Value Stores via Multiget Scheduling</a>
-      </h3>
-
-      <div class="pub-abstract" itemprop="text">
-        
-         
-        
-      </div>
-
-      <div class="pub-authors" itemprop="author">
-        
-        W Reda, M Canini, L Suresh, D Kostic, S Braithwaite
-        
-      </div>
-
-      <div class="pub-publication">
-        
-        EuroSys&rsquo;17
-        
-      </div>
-
-      <div class="pub-links">
-        
-
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="https://wreda.github.io/publication/rein/">
-  Details
-</a>
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="https://mcanini.github.io/papers/rein.eurosys17.pdf">
-  PDF
-</a>
-
-
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="https://github.com/wreda/cassandra-rein">
-  Code
-</a>
-
-
-
-
-
-      </div>
-
-    </div>
-  </div>
-</div>
-
-    
-    <div class="pub-list-item" itemscope itemtype="http://schema.org/CreativeWork">
-  <div class="row">
-
-    
-
-    <div class="col-md-12">
-
-    
-
-      <h3 class="article-title" itemprop="name">
-        <a href="https://wreda.github.io/publication/brb/" itemprop="url">BRB: BetteR Batch Scheduling to Reduce Tail Latencies in Cloud Data Stores</a>
-      </h3>
-
-      <div class="pub-abstract" itemprop="text">
-        
-         
-        
-      </div>
-
-      <div class="pub-authors" itemprop="author">
-        
-        W Reda, L Suresh, M Canini, S Braithwaite
-        
-      </div>
-
-      <div class="pub-publication">
-        
-        SIGCOMM&rsquo;15
-        
-      </div>
-
-      <div class="pub-links">
-        
-
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="https://wreda.github.io/publication/brb/">
-  Details
-</a>
-
-
-<a class="btn btn-primary btn-outline btn-xs" href="http://conferences.sigcomm.org/sigcomm/2015/pdf/papers/p607.pdf">
-  PDF
-</a>
-
-
-
-
-
-
-
-
-      </div>
-
-    </div>
-  </div>
-</div>
-
-    
-    
-
-  </div>
-</div>
-
-    </div>
-  </section>
-
-  
-  
-  <section id="talks" class="home-section">
-    <div class="container">
-      
-
-
-
-
-<div class="row">
-  <div class="col-xs-12 col-md-4 section-heading">
-    <h1>Recent &amp; Upcoming Talks</h1>
-    
-    
-  </div>
-  <div class="col-xs-12 col-md-8">
-    
-
-    
-    <ul class="fa-ul">
-      
-    </ul>
-    
-
-  </div>
-</div>
-
-    </div>
-  </section>
-
-  
-  
-  <section id="posts" class="home-section">
-    <div class="container">
-      
-
-
-
-
-<div class="row">
-  <div class="col-xs-12 col-md-4 section-heading">
-
-    <h1>Recent Posts</h1>
-    
-    
-
-  </div>
-  <div class="col-xs-12 col-md-8">
-
-    
-
-    
-      
-    
-
-  </div>
-</div>
-
-    </div>
-  </section>
-
-  
-  
-  <section id="projects" class="home-section">
-    <div class="container">
-      
-
-
-
-<div class="row">
-  <div class="col-xs-12 col-md-4 section-heading">
-    <h1>Projects</h1>
-    
-  </div>
-  <div class="col-xs-12 col-md-8">
-    
-
-    <div class="project-toolbar">
-      <div id="filters">
-        <div class="btn-toolbar">
-          <div class="btn-group">
-          
-            <a href="#" data-filter="*" class="btn btn-primary btn-large active">All</a>
-          
-            <a href="#" data-filter=".distributed-storage" class="btn btn-primary btn-large">Distributed Storage</a>
-          
-            <a href="#" data-filter=".demo" class="btn btn-primary btn-large">Other</a>
-          
-          </div>
-        </div>
-      </div>
+<nav class="chips" id="chips" aria-label="Projects"></nav>
+
+<p class="foot"><span>Illustration:</span> a stylized Clos fabric. Topology, counts and traffic are not real data.<span class="hint"><br>Drag to orbit · scroll or pinch to zoom · click a label to fly in</span></p>
+
+<aside class="panel" id="panel" role="dialog" aria-labelledby="pTitle" aria-hidden="true">
+  <div class="phead"><span class="k" id="pKicker"></span>
+    <button class="x" id="pClose" aria-label="Close panel"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12"/></svg></button></div>
+  <div class="pbody" id="pBody"></div>
+  <div class="pfoot" id="pFoot"></div>
+</aside>
+
+<section class="reader" id="reader" role="dialog" aria-modal="true" aria-label="Summary as text" aria-hidden="true">
+  <button class="pill close" id="rClose">Back to the fabric</button>
+  <div class="col">
+    <h2>Gautam Kumar</h2>
+    <p class="sub">Distributed Systems &amp; Networking · Infrastructure for Large-Scale AI</p>
+    <p>A decade at Google building datacenter networking and distributed systems across millions of servers. I take ideas from research to production: Swift, Firefly/Sundial and Aequitas underpin Google's storage, search and AI/ML infrastructure. Each was designed, rolled out fleet-wide, published at SIGCOMM, OSDI or NSDI, and patented.</p>
+    <p>10 years at Google, 2016 to 2026 · 25+ peer-reviewed papers · 10+ patents filed, 5+ granted · Best Paper, ACM SIGCOMM 2020.</p>
+    <div class="links">
+      <a href="mailto:gautamk@outlook.com">gautamk@outlook.com</a>
+      <a href="https://linkedin.com/in/gautamkmr">LinkedIn</a>
+      <a href="https://scholar.google.com/citations?user=DsnzfmkAAAAJ&amp;hl=en">Google Scholar</a>
+      <a href="https://github.com/gautam-kumar">GitHub</a>
     </div>
 
-    
+    <h3>Work · Google, 2016 to 2026</h3>
+    <p>Software Engineer to Staff Software Engineer · Tech Lead &amp; Infrastructure Architect · Mountain View / Sunnyvale</p>
+    <dl id="readerWork"></dl>
 
-    <div id="container-projects" class="row isotope">
-
-      
-
-    </div>
-
-    
-
-  </div>
-</div>
-
-    </div>
-  </section>
-
-  
-  
-  <section id="teaching" class="home-section">
-    <div class="container">
-      
-
-
-<div class="row">
-  <div class="col-xs-12 col-md-4 section-heading">
-    <h1>Teaching</h1>
-    
-  </div>
-  <div class="col-xs-12 col-md-8">
-    <p>I was a teaching instructor for the following courses at UCL:</p>
-
-<ul>
-<li>INGI2145: Cloud Computing</li>
-<li>LINF2345: Languages and Algorithms for Distributed Applications</li>
-</ul>
-
-  </div>
-</div>
-
-    </div>
-  </section>
-
-  
-  
-  <section id="contact" class="home-section">
-    <div class="container">
-      
-
-
-
-
-<div class="row">
-  <div class="col-xs-12 col-md-4 section-heading">
-    <h1>Contact</h1>
-    
-  </div>
-  <div class="col-xs-12 col-md-8">
-    
-
-    <ul class="fa-ul" itemscope>
-
-      
-      <li>
-        <i class="fa-li fa fa-envelope fa-2x" aria-hidden="true"></i>
-        <span id="person-email" itemprop="email"><a href="mailto:wfhsr@kth.se">wfhsr@kth.se</a></span>
-      </li>
-      
-
-      
-
-      
-
-      
-
-      
-
-      
-      <li>
-        <i class="fa-li fa fa-map-marker fa-2x" aria-hidden="true"></i>
-        <span id="person-address" itemprop="address">Isafjordsgatan 26, 164 40 Kista, Stockholm, Sweden</span>
-      </li>
-      
-
-      
-      <li>
-        <i class="fa-li fa fa-clock-o fa-2x" aria-hidden="true"></i>
-        <span>Appointments by email</span>
-      </li>
-      
-
+    <h3>Earlier research and engineering</h3>
+    <ul class="l">
+      <li><b>Rubrik and Microsoft Research:</b> research internships on backend fault tolerance and network-traffic classification via switch QoS.</li>
+      <li><b>UC Berkeley:</b> graduate student researcher in network performance isolation and congestion control.</li>
+      <li><b>Bell Labs, EPFL, IBM Research India:</b> base-station processing, BGP stability and VM migration.</li>
     </ul>
 
-  </div>
-</div>
+    <h3>Selected publications</h3>
+    <p>25+ peer-reviewed publications in top systems venues. Full list on <a class="lk" href="https://scholar.google.com/citations?user=DsnzfmkAAAAJ&amp;hl=en">Google Scholar</a>.</p>
+    <ul class="l" id="readerPubs"></ul>
 
+    <h3>Selected patents</h3>
+    <p>Recognized under Google's Patent Recognition Program: 10+ filed, 5+ granted.</p>
+    <ul class="l" id="readerPats"></ul>
+
+    <h3>Awards</h3>
+    <ul class="l" id="readerAwards"></ul>
+
+    <h3>Education</h3>
+    <ul class="l">
+      <li><b>University of California, Berkeley</b><span class="m">M.S. in Computer Science</span></li>
+      <li><b>Indian Institute of Technology, Kharagpur</b><span class="m">B.Tech. in Computer Science · Valedictorian</span></li>
+    </ul>
+
+    <h3>Expertise</h3>
+    <p>Datacenter and AI/ML cluster networking, congestion control and reliable transport, RDMA, distributed clock synchronization, host and kernel networking, SDN, multi-tenant isolation, large-scale distributed systems.</p>
+
+    <h3>Contact</h3>
+    <p>The best way to reach me is email: <a class="lk" href="mailto:gautamk@outlook.com">gautamk@outlook.com</a>.</p>
+    <div class="links">
+      <a href="https://linkedin.com/in/gautamkmr">LinkedIn</a>
+      <a href="https://scholar.google.com/citations?user=DsnzfmkAAAAJ&amp;hl=en">Google Scholar</a>
+      <a href="https://github.com/gautam-kumar">GitHub</a>
     </div>
-  </section>
-
-
-
-<footer class="site-footer">
-  <div class="container">
-    <p class="powered-by">
-
-      &copy; 2017 Waleed Reda &middot; 
-
-      Powered by the <a href="https://github.com/gcushen/hugo-academic" target="_blank">Academic
-      theme</a> for <a href="http://gohugo.io" target="_blank">Hugo</a>.
-
-      <span class="pull-right" aria-hidden="true">
-        <a href="#" id="back_to_top">
-          <span class="button_icon">
-            <i class="fa fa-chevron-up fa-2x"></i>
-          </span>
-        </a>
-      </span>
-
-    </p>
+    <p style="margin-top:40px;font-size:13px;color:var(--faint)">© 2026 Gautam Kumar</p>
   </div>
-</footer>
+</section>
 
-    <script src="//cdnjs.cloudflare.com/ajax/libs/gsap/1.18.4/TweenMax.min.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/gsap/latest/plugins/ScrollToPlugin.min.js"></script>
-    <script src="/js/jquery-1.12.3.min.js"></script>
-    <script src="/js/bootstrap.min.js"></script>
-    <script src="/js/isotope.pkgd.min.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/4.1.1/imagesloaded.pkgd.min.js"></script>
-    <script src="/js/hugo-academic.js"></script>
-    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
 
-    
+/* =============================== content =============================== */
+const SCHOLAR = "https://scholar.google.com/citations?user=DsnzfmkAAAAJ&hl=en";
+const PAPERS = {
+  swift:{t:"Swift: Delay is Simple and Effective for Congestion Control in the Datacenter",a:"<u>G. Kumar</u>, N. Dukkipati, K. Jang, A. Vahdat, et al.",v:"ACM SIGCOMM 2020",best:true},
+  firefly:{t:"Firefly: Scalable, Ultra-Accurate Clock Synchronization for Datacenters",a:"P. Namyar, …, <u>G. Kumar</u>, et al.",v:"ACM SIGCOMM 2025"},
+  bolt:{t:"Bolt: Sub-RTT Congestion Control for Ultra-Low Latency",a:"S. Arslan, Y. Li, <u>G. Kumar</u>, N. Dukkipati",v:"USENIX NSDI 2023"},
+  poseidon:{t:"Poseidon: Efficient, Robust, and Practical Datacenter CC via Deployable INT",a:"M. Javadi, W. Wang, Y. Li, <u>G. Kumar</u>, N. Cardwell, N. Dukkipati, et al.",v:"USENIX NSDI 2023"},
+  aequitas:{t:"Aequitas: Admission Control for Performance-Critical RPCs in Datacenters",a:"Y. Zhang, <u>G. Kumar</u>, N. Dukkipati, M. Chowdhury, A. Vahdat, et al.",v:"ACM SIGCOMM 2022"},
+  plb:{t:"PLB: Congestion Signals are Simple and Effective for Network Load Balancing",a:"M.A. Qureshi, Y. Cheng, <u>G. Kumar</u>, M. Moshref, J. Yan, et al.",v:"ACM SIGCOMM 2022"},
+  sundial:{t:"Sundial: Fault-Tolerant Clock Synchronization for Datacenters",a:"Y. Li, <u>G. Kumar</u>, N. Dukkipati, A. Vahdat, et al.",v:"USENIX OSDI 2020"}
+};
+const PAPER_ORDER=["swift","firefly","bolt","poseidon","aequitas","plb","sundial"];
+const PATENTS = {
+  swift:{t:"Congestion Control for Low-Latency Datacenter Networks",n:"US 10,999,206 · lead inventor",d:"Delay-based congestion control for low-latency, high-throughput networks (Swift)."},
+  aequitas:{t:"Admission Control for Latency-Critical RPCs in Datacenters",n:"US 12,081,442 · lead inventor",d:"Tier-based admission control guaranteeing RPC latency SLOs (Aequitas)."},
+  bolt:{t:"Network Congestion Control in Sub-Round-Trip Time",n:"US 12,250,157",d:"Sub-RTT control unlocking 400 Gbps+ throughput for dense ML clusters (Bolt)."},
+  firefly:{t:"Fault-Tolerant Design for Clock-Synchronization Systems",n:"US 11,463,187",d:"Consensus-based fault tolerance for sub-10 ns clock-sync accuracy (Firefly/Sundial)."},
+  rue:{t:"Rate Update Engine for Reliable Transport Protocol",n:"US 11,979,330 & 11,711,311",d:"Hardware-assisted congestion-control computation off the packet datapath."},
+  int:{t:"Congestion Control for Networks Using Deployable INT",n:"US App. 18/135,995",d:"In-band Network Telemetry for real-time congestion signaling (Poseidon)."}
+};
+const PATENT_ORDER=["swift","aequitas","bolt","firefly","rue","int"];
+const AWARDS=[
+  "<b>Best Paper Award</b> · ACM SIGCOMM 2020, for Swift",
+  "<b>Feats of Engineering (4×)</b> and <b>Cloud Tech Impact Award</b> · Google",
+  "<b>Prolific Inventor</b> · Google, 10+ patents filed",
+  "<b>Outstanding Graduate Student Instructor</b> · UC Berkeley",
+  "<b>President of India Gold Medal</b> · IIT Kharagpur, rank 1 of 1000+",
+  "<b>John von Neumann Award</b>, O.P. Jindal Scholar · IIT Kharagpur"
+];
 
-    
-    
-      
-      <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/highlight.min.js"></script>
+const PROJ=[
+ {id:"swift",name:"Swift",where:"host delay loops",c:"#2dd4bf",title:"Fleet-wide congestion control",role:"Technical Lead",
+  body:["I led the fleet-wide rollout of <strong>Swift</strong>, Google's delay-based congestion-control fabric, across networking, hardware and kernel teams, deploying hardware-timestamped delay loops that unlock throughput for next-generation workloads.",
+        "Lead author of the SIGCOMM 2020 paper (<strong>Best Paper Award</strong>; <a class='lk' href='https://link.springer.com/chapter/10.1007/978-3-031-99489-0_12'>Google Top-25 Paper</a>) and lead inventor on the foundational patent. Swift's delay-measurement approach became an industry reference point and influenced the RTT-based congestion control shipped in NVIDIA ConnectX-7 NICs."],
+  scene:"Teal loops leave a host, cross the fabric and return: the round trip whose delay Swift reacts to.",
+  papers:["swift"],related:["bolt","poseidon"],patents:["swift"],relPat:["bolt","int"]},
+ {id:"plb",name:"PLB",where:"spine paths",c:"#fb923c",title:"Host-based load balancing",role:"Co-designer",
+  body:["Co-designed <strong>PLB</strong>, host-based load balancing that routes traffic around fabric hotspots (SIGCOMM 2022)."],
+  scene:"One spine runs hot (red). Orange flows take alternate spine paths around it.",
+  papers:["plb"],patents:[]},
+ {id:"aequitas",name:"Aequitas",where:"admission",c:"#f472b6",title:"RPC performance isolation",role:"Technical Lead",
+  body:["Mapped storage read and write traffic to the right network QoS classes, enforcing SLAs for latency-critical versus best-effort RPCs through cluster-wide <strong>admission control</strong> (SIGCOMM 2022)."],
+  scene:"A ring of admission wraps one pod. Pink latency-critical RPCs pass through; grey best-effort traffic is held at the ring.",
+  papers:["aequitas"],patents:["aequitas"]},
+ {id:"firefly",name:"Firefly / Sundial",where:"clock pulse",c:"#fcd981",title:"Distributed clock synchronization",role:"Principal Architect",
+  body:["Built scalable, software-driven clock-consensus systems achieving fault-tolerant <strong>sub-10 ns</strong> synchronization over commodity Ethernet, unlocking a flagship financial-exchange customer on Google Cloud."],
+  scene:"The gold pulse that ripples through every switch in the hall and on to the distant fabric.",
+  papers:["firefly","sundial"],patents:["firefly"]},
+ {id:"big",name:"Big Packets",where:"on the NICs",c:"#a3e635",title:"5 KB MTU, fleet-wide",role:"Technical Lead",
+  body:["Drove fleet deployment of a <strong>5 KB MTU</strong> for OS-bypass networking stacks, cutting per-packet overhead at high line rates."],
+  scene:"Lime NICs on one pod's hosts, sending fewer, larger packets.",
+  papers:[],patents:[],relPat:["rue"]},
+ {id:"gemini",name:"Gemini",where:"WAN to a second fabric",c:"#a78bfa",title:"Network performance for large-scale model training",role:"Contributor",
+  body:["Developed WAN QoS assignment, allocation and capacity planning for <strong>Gemini</strong>'s geo-distributed training, with deadline-driven QoS readjustment to improve training speed."],
+  scene:"The violet WAN link leaves the building and arcs to a second, distant fabric.",
+  papers:[],patents:[]}
+];
+const PID={}; PROJ.forEach((p,i)=>{p.i=i;PID[p.id]=p;});
 
-      
+/* =============================== DOM: rail, chips, reader =============================== */
+const $=s=>document.querySelector(s);
+const railList=$("#railList"), chips=$("#chips");
+PROJ.forEach(p=>{
+  const li=document.createElement("li");
+  li.innerHTML=`<button class="ri" data-open="${p.id}" style="--c:${p.c}"><i class="d"></i><span><b>${p.name}</b><em>${p.where}</em></span></button>`;
+  railList.appendChild(li);
+  chips.insertAdjacentHTML("beforeend",`<button class="chip" data-open="${p.id}" style="--c:${p.c}"><i></i>${p.name}</button>`);
+});
+chips.insertAdjacentHTML("beforeend",`<button class="chip" data-open="pubs" style="--c:#cbd5e1"><i></i>Papers &amp; patents</button><button class="chip" data-open="contact" style="--c:#cbd5e1"><i></i>Contact</button>`);
 
-      
+const paperLi=k=>{const p=PAPERS[k];return `<li><span class="tt">${p.t}${p.best?'<span class="tag">Best Paper</span>':''}</span><span class="mt">${p.v}</span><span class="ds">${p.a}</span></li>`;};
+const patLi=k=>{const p=PATENTS[k];return `<li><span class="tt">${p.t}</span><span class="mt">${p.n}</span><span class="ds">${p.d}</span></li>`;};
 
-      <script>hljs.initHighlightingOnLoad();</script>
-    
+$("#readerWork").innerHTML=PROJ.map(p=>`<dt>${p.name}: ${p.title.toLowerCase()}<small>${p.role}</small></dt><dd>${p.body.join(" ")}</dd>`).join("")+
+  `<dt>Technical leadership across orgs</dt><dd>Owned fleet-wide decisions on networking hardware, capacity and transport with silicon and NIC partners; mentored and grew staff and senior engineers and tech leads across globally distributed teams.</dd>`;
+$("#readerPubs").innerHTML=PAPER_ORDER.map(k=>{const p=PAPERS[k];return `<li><b>${p.t}</b>${p.best?'<span class="tag">Best Paper</span>':''}<span class="m">${p.a.replace(/<\/?u>/g,"")} · ${p.v}</span></li>`;}).join("");
+$("#readerPats").innerHTML=PATENT_ORDER.map(k=>{const p=PATENTS[k];return `<li><b>${p.t}</b><span class="m">${p.n}</span>${p.d}</li>`;}).join("");
+$("#readerAwards").innerHTML=AWARDS.map(a=>`<li>${a}</li>`).join("");
 
-    
-    
+/* =============================== environment =============================== */
+const MOBILE = innerWidth < 760;
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let seed=20200810; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const pick=a=>a[Math.floor(rnd()*a.length)];
 
-  </body>
+/* =============================== panels =============================== */
+const panel=$("#panel"), pBody=$("#pBody"), pFoot=$("#pFoot"), pKicker=$("#pKicker");
+let current=null;
+function projectHTML(p){
+  let h=`<h2 id="pTitle">${p.name}</h2><p class="role">${p.title} <span>· ${p.role}</span></p>`;
+  h+=p.body.map(b=>`<p>${b}</p>`).join("");
+  h+=`<div class="scene"><i>In the scene ·</i> ${p.scene}</div>`;
+  if(p.papers.length) h+=`<h3>${p.papers.length>1?"Papers":"Paper"}</h3><ul class="refs">${p.papers.map(paperLi).join("")}</ul>`;
+  if(p.patents.length) h+=`<h3>Patent</h3><ul class="refs">${p.patents.map(patLi).join("")}</ul>`;
+  if(p.related) h+=`<h3>Related congestion-control papers</h3><ul class="refs">${p.related.map(paperLi).join("")}</ul>`;
+  if(p.relPat) h+=`<h3>${p.id==="big"?"Related patent, host transport":"Related patents"}</h3><ul class="refs">${p.relPat.map(patLi).join("")}</ul>`;
+  if(!p.papers.length && !p.patents.length && !p.relPat) h+=`<h3>Publications</h3><p style="font-size:13.5px;color:var(--muted)">No paper or patent is listed for this work. All publications are on <a class="lk" href="${SCHOLAR}">Google Scholar</a>.</p>`;
+  return h;
+}
+function pubsHTML(){
+  return `<h2 id="pTitle">Papers &amp; patents</h2><p class="role">25+ peer-reviewed papers <span>· 10+ patents filed, 5+ granted</span></p>
+  <h3>Selected publications</h3><ul class="refs">${PAPER_ORDER.map(paperLi).join("")}</ul>
+  <p style="margin-top:12px;font-size:13.5px">Full list on <a class="lk" href="${SCHOLAR}">Google Scholar</a>.</p>
+  <h3>Selected patents</h3><ul class="refs">${PATENT_ORDER.map(patLi).join("")}</ul>
+  <h3>Awards</h3><ul class="refs">${AWARDS.map(a=>`<li><span class="ds" style="color:var(--ink-2)">${a.replace(/<b>/g,'<b style="color:#fff;font-weight:500">')}</span></li>`).join("")}</ul>`;
+}
+function contactHTML(){
+  return `<h2 id="pTitle">Contact</h2><p class="role">The best way to reach me is email.</p>
+  <ul class="contact-list">
+    <li><a href="mailto:gautamk@outlook.com">gautamk@outlook.com<span>email</span></a></li>
+    <li><a href="https://linkedin.com/in/gautamkmr">LinkedIn<span>linkedin.com/in/gautamkmr</span></a></li>
+    <li><a href="${SCHOLAR}">Google Scholar<span>publications</span></a></li>
+    <li><a href="https://github.com/gautam-kumar">GitHub<span>gautam-kumar</span></a></li>
+  </ul>
+  <h3>Education</h3><ul class="refs">
+    <li><span class="tt">University of California, Berkeley</span><span class="mt">M.S. in Computer Science</span></li>
+    <li><span class="tt">Indian Institute of Technology, Kharagpur</span><span class="mt">B.Tech. in Computer Science · Valedictorian</span></li></ul>
+  <h3>Expertise</h3><p style="font-size:14px">Datacenter and AI/ML cluster networking, congestion control and reliable transport, RDMA, distributed clock synchronization, host and kernel networking, SDN, multi-tenant isolation, large-scale distributed systems.</p>`;
+}
+function setActive(id){
+  document.querySelectorAll("[data-open]").forEach(b=>b.classList.toggle("on",b.dataset.open===id));
+  document.querySelectorAll(".lbl").forEach(b=>b.classList.toggle("on",b.dataset.id===id));
+}
+function openPanel(id){
+  current=id;
+  const p=PID[id];
+  panel.style.setProperty("--c", p? p.c : "#7dd3fc");
+  if(p){
+    pKicker.textContent=`${String(p.i+1).padStart(2,"0")} / 06 · ${p.where}`;
+    pBody.innerHTML=projectHTML(p);
+    const prev=PROJ[(p.i+5)%6], next=PROJ[(p.i+1)%6];
+    pFoot.innerHTML=`<button data-open="${prev.id}">← ${prev.name}</button><button data-open="${next.id}">${next.name} →</button>`;
+    pFoot.style.display="";
+  } else {
+    pKicker.textContent= id==="pubs"?"Record":"Reach";
+    pBody.innerHTML= id==="pubs"?pubsHTML():contactHTML();
+    pFoot.innerHTML=""; pFoot.style.display="none";
+  }
+  pBody.scrollTop=0;
+  panel.classList.add("open"); panel.setAttribute("aria-hidden","false");
+  $("#rail").classList.add("away"); document.body.classList.add("sheet");
+  setActive(id);
+  if(window.__fly) window.__fly(id);
+  setTimeout(()=>$("#pClose").focus({preventScroll:true}),60);
+}
+function closePanel(){
+  if(!current) return;
+  current=null;
+  panel.classList.remove("open"); panel.setAttribute("aria-hidden","true");
+  $("#rail").classList.remove("away"); document.body.classList.remove("sheet");
+  setActive(null);
+  if(window.__fly) window.__fly(null);
+}
+const reader=$("#reader");
+function openReader(){reader.classList.add("open");reader.setAttribute("aria-hidden","false");document.body.classList.add("reading");reader.scrollTop=0;setTimeout(()=>$("#rClose").focus(),40);}
+function closeReader(){reader.classList.remove("open");reader.setAttribute("aria-hidden","true");document.body.classList.remove("reading");$("#readBtn").focus();}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-open]"); if(b){e.preventDefault();openPanel(b.dataset.open);}
+});
+$("#pClose").addEventListener("click",closePanel);
+$("#readBtn").addEventListener("click",openReader);
+$("#rClose").addEventListener("click",closeReader);
+addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(reader.classList.contains("open")) closeReader(); else closePanel(); }});
+
+/* =============================== three.js scene =============================== */
+if(typeof THREE==="undefined"){ document.body.classList.add("nogl"); return; }
+let renderer;
+const canvas=$("#stage");
+try{
+  renderer=new THREE.WebGLRenderer({canvas,antialias:!MOBILE,powerPreference:"high-performance"});
+}catch(err){ document.body.classList.add("nogl"); return; }
+const DPR=Math.min(window.devicePixelRatio||1, MOBILE?1.75:2);
+renderer.setPixelRatio(DPR);
+renderer.setClearColor(0x05070b,1);
+
+const scene=new THREE.Scene();
+const FOG=MOBILE?0.0030:0.0027;
+scene.fog=new THREE.FogExp2(0x05070b,FOG);
+const camera=new THREE.PerspectiveCamera(MOBILE?52:42,1,0.5,2400);
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+/* ---- shared uniforms ---- */
+const U={uTime:{value:0},uScale:{value:600},uFog:{value:FOG},uRO:{value:V(0,40,0)},uRR:{value:60},uRA:{value:1}};
+
+const GLOW_VS=`
+attribute vec3 color; attribute float size;
+uniform float uScale,uFog,uRR,uRA,uMul,uI; uniform vec3 uRO;
+varying vec3 vC; varying float vA;
+void main(){
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  float d=distance(position,uRO);
+  float w=exp(-pow((d-uRR)/9.0,2.0))*uRA;
+  vC=mix(color,vec3(1.0,0.86,0.52),clamp(w,0.0,1.0)*0.85)*(1.0+w*2.2)*uI;
+  vA=exp(-pow(uFog*length(mv.xyz)*0.82,2.0));
+  gl_PointSize=min(size*uMul*(1.0+w*1.3)*uScale/-mv.z,90.0);
+  gl_Position=projectionMatrix*mv;
+}`;
+const PKT_VS=`
+attribute vec3 aA,aC,aB,color; attribute vec2 aPS; attribute float size;
+uniform float uTime,uScale,uFog,uRR,uRA,uI; uniform vec3 uRO;
+varying vec3 vC; varying float vA;
+void main(){
+  float t=fract(aPS.x+uTime*aPS.y); float s=1.0-t;
+  vec3 p=s*s*aA+2.0*s*t*aC+t*t*aB;
+  vec4 mv=modelViewMatrix*vec4(p,1.0);
+  float d=distance(p,uRO);
+  float w=exp(-pow((d-uRR)/9.0,2.0))*uRA*0.6;
+  float edge=smoothstep(0.0,0.08,t)*smoothstep(1.0,0.92,t);
+  vC=color*(1.0+w)*uI;
+  vA=edge*exp(-pow(uFog*length(mv.xyz)*0.85,2.0));
+  gl_PointSize=min(size*uScale/-mv.z,48.0);
+  gl_Position=projectionMatrix*mv;
+}`;
+const PT_FS=`
+varying vec3 vC; varying float vA;
+void main(){
+  vec2 c=gl_PointCoord-0.5; float d=dot(c,c)*4.0;
+  float a=exp(-d*4.5)+exp(-d*28.0)*0.9;
+  if(a*vA<0.004) discard;
+  gl_FragColor=vec4(vC*a*vA,1.0);
+}`;
+function glowMat(mul){
+  return new THREE.ShaderMaterial({uniforms:Object.assign({},U,{uMul:{value:mul||1},uI:{value:1}}),vertexShader:GLOW_VS,fragmentShader:PT_FS,
+    transparent:true,depthWrite:false,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor});
+}
+function pktMat(){
+  return new THREE.ShaderMaterial({uniforms:Object.assign({},U,{uI:{value:1}}),vertexShader:PKT_VS,fragmentShader:PT_FS,
+    transparent:true,depthWrite:false,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor});
+}
+const col=h=>new THREE.Color(h);
+
+/* ---- builders ---- */
+function glowPoints(list,mul){ // list [{p,c,s}]
+  const n=list.length,pos=new Float32Array(n*3),c=new Float32Array(n*3),s=new Float32Array(n);
+  list.forEach((o,i)=>{pos.set([o.p.x,o.p.y,o.p.z],i*3);c.set([o.c.r,o.c.g,o.c.b],i*3);s[i]=o.s;});
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("color",new THREE.BufferAttribute(c,3));g.setAttribute("size",new THREE.BufferAttribute(s,1));
+  const m=new THREE.Points(g,glowMat(mul)); m.frustumCulled=false; scene.add(m); return m;
+}
+function packets(list){ // [{a,c,b,ph,sp,col,s}]
+  const n=list.length,A=new Float32Array(n*3),C=new Float32Array(n*3),B=new Float32Array(n*3),K=new Float32Array(n*3),PS=new Float32Array(n*2),S=new Float32Array(n);
+  list.forEach((o,i)=>{A.set([o.a.x,o.a.y,o.a.z],i*3);C.set([o.c.x,o.c.y,o.c.z],i*3);B.set([o.b.x,o.b.y,o.b.z],i*3);K.set([o.col.r,o.col.g,o.col.b],i*3);PS[i*2]=o.ph;PS[i*2+1]=o.sp;S[i]=o.s;});
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(A,3));
+  g.setAttribute("aA",new THREE.BufferAttribute(A,3));g.setAttribute("aC",new THREE.BufferAttribute(C,3));g.setAttribute("aB",new THREE.BufferAttribute(B,3));
+  g.setAttribute("color",new THREE.BufferAttribute(K,3));g.setAttribute("aPS",new THREE.BufferAttribute(PS,2));g.setAttribute("size",new THREE.BufferAttribute(S,1));
+  const m=new THREE.Points(g,pktMat()); m.frustumCulled=false; scene.add(m); return m;
+}
+function lines(pairs,color,opacity){ // pairs [[a,b,(colorB)]]
+  const pos=new Float32Array(pairs.length*6),c=new Float32Array(pairs.length*6);const k=col(color);
+  pairs.forEach((p,i)=>{pos.set([p[0].x,p[0].y,p[0].z,p[1].x,p[1].y,p[1].z],i*6);const k2=p[2]||k;c.set([k.r,k.g,k.b,k2.r,k2.g,k2.b],i*6);});
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("color",new THREE.BufferAttribute(c,3));
+  const m=new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,fog:true}));
+  m.userData.base=opacity; m.frustumCulled=false; scene.add(m); return m;
+}
+function bez(a,c,b,t){const s=1-t;return V(s*s*a.x+2*s*t*c.x+t*t*b.x,s*s*a.y+2*s*t*c.y+t*t*b.y,s*s*a.z+2*s*t*c.z+t*t*b.z);}
+function curvePairs(a,c,b,n,out){let p=a;for(let i=1;i<=n;i++){const q=bez(a,c,b,i/n);out.push([p,q]);p=q;}return out;}
+const through=(a,m,b)=>V(2*m.x-(a.x+b.x)/2,2*m.y-(a.y+b.y)/2,2*m.z-(a.z+b.z)/2);
+const mid=(a,b)=>V((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);
+function boxes(list,sx,sy,sz,colorFn){
+  const g=new THREE.BoxGeometry(sx,sy,sz);
+  const m=new THREE.InstancedMesh(g,new THREE.MeshBasicMaterial({color:0xffffff,fog:true}),list.length);
+  const o=new THREE.Object3D();
+  list.forEach((p,i)=>{o.position.copy(p);o.updateMatrix();m.setMatrixAt(i,o.matrix);m.setColorAt(i,colorFn(i));});
+  m.instanceMatrix.needsUpdate=true; if(m.instanceColor) m.instanceColor.needsUpdate=true;
+  scene.add(m); return m;
+}
+
+function buildFabric(o){
+  const {ox,oz,PX,PZ,RX,RZ,H,A,SX,SZ,podDX,podDZ,aggY,spineY}=o;
+  const hs=0.52, rackH=H*hs, torY=rackH+0.5;
+  const hallW=PX*podDX, hallD=PZ*podDZ;
+  const F={pods:[],hosts:[],tors:[],aggs:[],spines:[],hostLinks:[],torAgg:[],aggSpine:[],hallW,hallD,rackH,torY,aggY,spineY,o:V(ox,0,oz),A};
+  for(let iz=0;iz<PZ;iz++)for(let ix=0;ix<PX;ix++){
+    const cx=ox+(ix-(PX-1)/2)*podDX, cz=oz+(iz-(PZ-1)/2)*podDZ;
+    const pod={ix,iz,c:V(cx,0,cz),racks:[],aggs:[]};
+    for(let a=0;a<A;a++){const p=V(cx+(a-(A-1)/2)*3.4,aggY,cz);p.k=a;F.aggs.push(p);pod.aggs.push(p);}
+    for(let rz=0;rz<RZ;rz++)for(let rx=0;rx<RX;rx++){
+      const x=cx+(rx-(RX-1)/2)*3.2, z=cz+(rz-(RZ-1)/2)*4.4;
+      const tor=V(x,torY,z); F.tors.push(tor);
+      const rack={x,z,tor,hosts:[]};
+      for(let h=0;h<H;h++){
+        const hp=V(x,h*hs+0.27,z); F.hosts.push(hp); rack.hosts.push(hp);
+        const lx=x-0.85+h*(1.7/H);
+        F.hostLinks.push([V(lx,hp.y,z+0.62),V(lx,torY,z+0.62)]);
+      }
+      pod.aggs.forEach(ag=>F.torAgg.push([tor,ag]));
+      pod.racks.push(rack);
+    }
+    F.pods.push(pod);
+  }
+  for(let sz=0;sz<SZ;sz++)for(let sx=0;sx<SX;sx++){
+    const p=V(ox+(SX>1?(sx/(SX-1)-0.5):0)*hallW*0.86,spineY,oz+(SZ>1?(sz/(SZ-1)-0.5):0)*hallD*0.86);
+    p.k=(sx+sz)%A; F.spines.push(p);
+  }
+  F.pods.forEach(pod=>pod.aggs.forEach(ag=>F.spines.forEach(s=>{if(s.k===ag.k)F.aggSpine.push([ag,s]);})));
+  return F;
+}
+
+/* ---- the main hall and the distant hall ---- */
+const CFG = MOBILE
+  ? {ox:0,oz:0,PX:2,PZ:4,RX:4,RZ:2,H:8,A:4,SX:4,SZ:8,podDX:20,podDZ:16,aggY:17,spineY:36}
+  : {ox:0,oz:0,PX:4,PZ:4,RX:4,RZ:2,H:16,A:4,SX:8,SZ:8,podDX:20,podDZ:16,aggY:21,spineY:42};
+const RCFG = MOBILE
+  ? {ox:-110,oz:-200,PX:2,PZ:2,RX:3,RZ:2,H:6,A:2,SX:4,SZ:4,podDX:16,podDZ:14,aggY:14,spineY:28}
+  : {ox:-140,oz:-230,PX:3,PZ:2,RX:4,RZ:2,H:10,A:3,SX:6,SZ:4,podDX:18,podDZ:15,aggY:17,spineY:34};
+const F=buildFabric(CFG), R=buildFabric(RCFG);
+
+const hostCol=()=>{const v=0.055+rnd()*0.05;return new THREE.Color(v*0.75,v*1.05,v*1.45);};
+[F,R].forEach((X,xi)=>{
+  boxes(X.hosts,2.0,0.42,1.15,hostCol);
+  boxes(X.tors,2.3,0.32,1.3,()=>col(xi?"#14263a":"#1a3550"));
+  boxes(X.aggs,2.6,0.6,1.5,()=>col(xi?"#162a40":"#1e3d5c"));
+  boxes(X.spines,3.2,0.7,1.9,()=>col(xi?"#18304a":"#21476b"));
+});
+
+/* floor grid + building envelopes */
+(function(){
+  const pairs=[];const ext=150,step=10;
+  for(let x=-ext;x<=ext;x+=step)pairs.push([V(x,0,-ext),V(x,0,ext)]);
+  for(let z=-ext;z<=ext;z+=step)pairs.push([V(-ext,0,z),V(ext,0,z)]);
+  lines(pairs,"#0f2236",0.5);
+  [F,R].forEach((X,i)=>{
+    const w=X.hallW+10,d=X.hallD+10,h=X.spineY+7;
+    const g=new THREE.EdgesGeometry(new THREE.BoxGeometry(w,h,d));
+    const m=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:i?0x2a3f63:0x24486e,transparent:true,opacity:i?0.55:0.45,blending:THREE.AdditiveBlending,depthWrite:false,fog:true}));
+    m.position.set(X.o.x,h/2,X.o.z); scene.add(m);
+  });
+})();
+
+/* base links */
+const BASE_LINKS=[];
+[F,R].forEach((X,i)=>{
+  BASE_LINKS.push(lines(X.hostLinks,i?"#16304a":"#1b3d5c",MOBILE?0.5:0.38));
+  BASE_LINKS.push(lines(X.torAgg,"#23557c",0.32));
+  BASE_LINKS.push(lines(X.aggSpine.map(p=>[p[0],p[1],col("#2b6ea0")]),"#163a5a",MOBILE?0.3:0.2));
+});
+
+/* node glows (ripple-aware) */
+const nodeGlow=[];
+[F,R].forEach((X,i)=>{
+  const f=i?0.75:1;
+  X.spines.forEach(p=>nodeGlow.push({p:V(p.x,p.y+0.5,p.z),c:col("#7cc8ff").multiplyScalar(0.75*f),s:1.9}));
+  X.aggs.forEach(p=>nodeGlow.push({p:V(p.x,p.y+0.4,p.z),c:col("#5fb4ef").multiplyScalar(0.7*f),s:1.5}));
+  X.tors.forEach(p=>nodeGlow.push({p:V(p.x,p.y+0.2,p.z),c:col("#4aa3df").multiplyScalar(0.6*f),s:1.2}));
+  X.hosts.forEach(p=>{ if(rnd()<0.55) nodeGlow.push({p:V(p.x+0.75,p.y,p.z+0.6),c:col(rnd()<0.12?"#9be7ff":"#3f8fc4").multiplyScalar(0.55*f),s:0.36}); });
+});
+glowPoints(nodeGlow,1);
+
+/* base packets */
+function straightPk(a,b,speed,color,size){const len=a.distanceTo(b);const r=rnd()<0.5;return {a:r?a:b,b:r?b:a,c:mid(a,b),ph:rnd(),sp:speed/len,col:color,s:size};}
+const basePk=[];
+const NBASE=MOBILE?1300:4200;
+const pkCols=[col("#9fe3ff"),col("#7cc8ff"),col("#c6f1ff")];
+for(let i=0;i<NBASE;i++){
+  const X = rnd()<0.86?F:R;
+  const r=rnd(); let L;
+  if(r<0.55) L=pick(X.aggSpine); else if(r<0.85) L=pick(X.torAgg); else L=pick(X.hostLinks);
+  basePk.push(straightPk(L[0],L[1],14+rnd()*16,pick(pkCols).clone().multiplyScalar(0.55+rnd()*0.4),0.55+rnd()*0.3));
+}
+const basePkObj=packets(basePk);
+
+/* =============================== project regions =============================== */
+const G={}; PROJ.forEach(p=>G[p.id]={lines:[],pts:[],anchor:null,pose:null});
+const podAt=(ix,iz)=>F.pods.find(p=>p.ix===ix&&p.iz===iz);
+const PX=CFG.PX, PZ=CFG.PZ;
+
+/* --- Swift: delay loops between hosts in one pod --- */
+(function(){
+  const pod=podAt(0,PZ-1), c=col(PID.swift.c), loops=[], pk=[], nic=[];
+  const N=MOBILE?14:30;
+  for(let i=0;i<N;i++){
+    const r1=pick(pod.racks), r2=pick(pod.racks), h1=pick(r1.hosts), h2=pick(r2.hosts);
+    const a=V(h1.x+0.75,h1.y,h1.z+0.6), b=V(h2.x+0.75,h2.y,h2.z+0.6);
+    const ag1=pod.aggs[i%pod.aggs.length], ag2=pod.aggs[(i+1+Math.floor(rnd()*2))%pod.aggs.length];
+    const lift=F.torY+3+rnd()*4;
+    const c1=through(a,V((a.x+ag1.x)/2,lift+1.5,(a.z+b.z)/2+1.2),b), c2=through(b,V((b.x+ag2.x)/2,lift-1,(a.z+b.z)/2-1.2),a);
+    curvePairs(a,c1,b,18,loops); curvePairs(b,c2,a,18,loops);
+    const sp=0.32+rnd()*0.2, ph=rnd();
+    pk.push({a,c:c1,b,ph,sp,col:c,s:0.9},{a:b,c:c2,b:a,ph:ph+0.5,sp,col:c,s:0.9});
+    pk.push({a,c:c1,b,ph:ph+0.33,sp,col:c.clone().multiplyScalar(0.6),s:0.6});
+    nic.push({p:a,c,s:0.9},{p:b,c,s:0.9});
+  }
+  G.swift.lines.push(lines(loops,PID.swift.c,0.3));
+  G.swift.pts.push(packets(pk), glowPoints(nic,1));
+  const halo=ring(V(pod.c.x,0.05,pod.c.z),13,PID.swift.c,0.5); G.swift.lines.push(halo);
+  G.swift.anchor=V(pod.c.x,F.rackH+3.2,pod.c.z);
+  G.swift.pose={t:V(pod.c.x,F.rackH*0.6+4,pod.c.z),r:MOBILE?62:62,phi:1.2,theta:null};
+})();
+
+function ring(center,radius,color,opacity,seg){
+  seg=seg||96;const pairs=[];
+  for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2,b=(i+1)/seg*Math.PI*2;
+    pairs.push([V(center.x+Math.cos(a)*radius,center.y,center.z+Math.sin(a)*radius),V(center.x+Math.cos(b)*radius,center.y,center.z+Math.sin(b)*radius)]);}
+  return lines(pairs,color,opacity);
+}
+
+/* --- PLB: a hot spine, flows rerouted around it --- */
+let hotSpineObj;
+(function(){
+  const sorted=F.spines.slice().sort((a,b)=>(a.x+a.z*0.3)-(b.x+b.z*0.3));
+  const hot=sorted[Math.floor(sorted.length*0.38)];
+  const k=hot.k, c=col(PID.plb.c), red=col("#ff4d4d");
+  const aggsK=F.aggs.filter(a=>a.k===k), alts=F.spines.filter(s=>s.k===k&&s!==hot);
+  const segs=[], hotSegs=[], pk=[];
+  const N=MOBILE?10:22;
+  for(let i=0;i<N;i++){
+    let a=pick(aggsK), b=pick(aggsK); if(a===b) b=aggsK[(aggsK.indexOf(a)+1)%aggsK.length];
+    const s=alts.slice().sort((p,q)=>p.distanceTo(hot)-q.distanceTo(hot))[1+Math.floor(rnd()*4)];
+    const cc=through(a,V(s.x,s.y+0.6,s.z),b);
+    curvePairs(a,cc,b,24,segs);
+    const sp=(16+rnd()*8)/(a.distanceTo(s)+s.distanceTo(b));
+    for(let j=0;j<3;j++) pk.push({a,c:cc,b,ph:rnd(),sp,col:c,s:0.95});
+  }
+  const hotIn=aggsK.slice(0,MOBILE?6:12);
+  hotIn.forEach(a=>{hotSegs.push([a,hot]); for(let j=0;j<2;j++) pk.push({a,c:mid(a,hot),b:hot,ph:rnd(),sp:4/a.distanceTo(hot),col:red.clone().multiplyScalar(0.8),s:0.7});});
+  G.plb.lines.push(lines(segs,PID.plb.c,0.38), lines(hotSegs,"#ff4d4d",0.35));
+  G.plb.pts.push(packets(pk));
+  hotSpineObj=glowPoints([{p:V(hot.x,hot.y+0.6,hot.z),c:col("#ff5a4a"),s:4.2}],1);
+  G.plb.pts.push(hotSpineObj);
+  G.plb.anchor=V(hot.x,hot.y+4,hot.z);
+  G.plb.pose={t:V(hot.x,hot.y-4,hot.z),r:MOBILE?78:64,phi:1.0,theta:null};
+})();
+
+/* --- Aequitas: admission ring around a pod --- */
+(function(){
+  const pod=podAt(PX-1,0), c=col(PID.aeq?PID.aeq.c:PID.aequitas.c), grey=col("#8b98a8");
+  const gateY=F.aggY+5, R0=10.5;
+  G.aequitas.lines.push(ring(V(pod.c.x,gateY,pod.c.z),R0,PID.aequitas.c,0.8), ring(V(pod.c.x,gateY+0.8,pod.c.z),R0+0.6,PID.aequitas.c,0.35));
+  const pk=[], segs=[];
+  const N=MOBILE?40:90;
+  for(let i=0;i<N;i++){
+    const ag=pick(pod.aggs), s=pick(F.spines.filter(x=>x.k===ag.k));
+    const rack=pick(pod.racks);
+    if(rnd()<0.55){ // admitted: spine -> agg -> ToR
+      const cc=through(s,ag,rack.tor);
+      pk.push({a:s,c:cc,b:rack.tor,ph:rnd(),sp:(18+rnd()*6)/(s.distanceTo(ag)+ag.distanceTo(rack.tor)),col:c,s:0.85});
+    } else { // best-effort: spine -> held at the ring
+      const ang=Math.atan2(s.z-pod.c.z,s.x-pod.c.x);
+      const g=V(pod.c.x+Math.cos(ang)*R0,gateY,pod.c.z+Math.sin(ang)*R0);
+      pk.push({a:s,c:mid(s,g),b:g,ph:rnd(),sp:(7+rnd()*3)/s.distanceTo(g),col:grey.clone().multiplyScalar(0.55),s:0.6});
+    }
+  }
+  pod.aggs.forEach(ag=>pod.racks.forEach(r=>segs.push([ag,r.tor])));
+  G.aequitas.lines.push(lines(segs,PID.aequitas.c,0.22));
+  G.aequitas.pts.push(packets(pk));
+  G.aequitas.anchor=V(pod.c.x+R0,gateY,pod.c.z);
+  G.aequitas.pose={t:V(pod.c.x,gateY-6,pod.c.z),r:MOBILE?66:56,phi:1.08,theta:null};
+})();
+
+/* --- Big Packets: lime NICs, larger packets --- */
+(function(){
+  const pod=podAt(PX-1,Math.max(0,PZ-2)), c=col(PID.big.c), nic=[], pk=[];
+  pod.racks.forEach(r=>r.hosts.forEach(h=>{
+    const n=V(h.x+0.95,h.y,h.z+0.62); nic.push({p:n,c:c.clone().multiplyScalar(0.8),s:0.75});
+    if(rnd()<0.5) pk.push({a:n,c:mid(n,r.tor),b:V(n.x,r.tor.y,n.z),ph:rnd(),sp:(5+rnd()*3)/Math.max(1,r.tor.y-n.y),col:c,s:1.55});
+  }));
+  pod.racks.forEach(r=>pod.aggs.forEach(ag=>{ if(rnd()<0.8){ pk.push({a:r.tor,c:mid(r.tor,ag),b:ag,ph:rnd(),sp:(9+rnd()*4)/r.tor.distanceTo(ag),col:c,s:1.6}); }}));
+  G.big.pts.push(glowPoints(nic,1), packets(pk));
+  G.big.lines.push(ring(V(pod.c.x,0.05,pod.c.z),13,PID.big.c,0.5));
+  G.big.anchor=V(pod.c.x+7,F.rackH*0.55,pod.c.z+5);
+  G.big.pose={t:V(pod.c.x,F.rackH*0.5+1,pod.c.z),r:MOBILE?48:40,phi:1.28,theta:null};
+})();
+
+/* --- Gemini: WAN arc to the distant fabric --- */
+let gemA,gemB;
+(function(){
+  const dir=V(R.o.x-F.o.x,0,R.o.z-F.o.z).normalize();
+  const A=F.spines.slice().sort((p,q)=>(q.x*dir.x+q.z*dir.z)-(p.x*dir.x+p.z*dir.z))[0];
+  const B=R.spines.slice().sort((p,q)=>(p.x*dir.x+p.z*dir.z)-(q.x*dir.x+q.z*dir.z))[0];
+  gemA=A; gemB=B;
+  const m=mid(A,B); const apexY=Math.max(A.y,B.y)+(MOBILE?48:60);
+  const segs=[], pk=[], c=col(PID.gemini.c), c2=col("#d8ccff");
+  const perp=V(-dir.z,0,dir.x);
+  const strands=MOBILE?3:5;
+  for(let s=0;s<strands;s++){
+    const off=(s-(strands-1)/2)*2.2;
+    const a=A.clone().addScaledVector(perp,off*0.25), b=B.clone().addScaledVector(perp,off*0.25);
+    const apex=V(m.x,apexY+Math.abs(off)*1.2,m.z).addScaledVector(perp,off);
+    const cc=through(a,apex,b);
+    curvePairs(a,cc,b,80,segs);
+    const len=a.distanceTo(b)*1.35;
+    for(let j=0;j<(MOBILE?22:44);j++){ const fwd=rnd()<0.6;
+      pk.push({a:fwd?a:b,c:cc,b:fwd?b:a,ph:rnd(),sp:(40+rnd()*16)/len,col:fwd?c:c2,s:1.25});}
+  }
+  G.gemini.lines.push(lines(segs,PID.gemini.c,0.5));
+  G.gemini.pts.push(packets(pk));
+  /* remote building glows violet at its door */
+  G.gemini.pts.push(glowPoints([{p:V(B.x,B.y+0.8,B.z),c:c,s:5},{p:V(A.x,A.y+0.8,A.z),c:c,s:4}],1));
+  G.gemini.anchor=V(m.x,apexY+2,m.z);
+  const L=A.distanceTo(B);
+  const gm=A.clone().lerp(B,0.46);
+  G.gemini.pose={t:V(gm.x,apexY*0.42,gm.z),r:MOBILE?L*2.1+40:L*1.85+100,phi:1.16,theta:null,perp};
+})();
+
+/* --- Firefly / Sundial: the clock pulse (rings at spine and agg height) --- */
+const ffRings=[];
+(function(){
+  const o=U.uRO.value.set(0,F.spineY,0);
+  ffRings.push(ring(V(0,0,0),1,PID.firefly.c,0.6,160), ring(V(0,0,0),1,PID.firefly.c,0.35,160));
+  ffRings[0].position.set(o.x,F.spineY,o.z); ffRings[1].position.set(o.x,F.aggY,o.z);
+  G.firefly.lines.push(...ffRings);
+  G.firefly.pts.push(glowPoints([{p:V(0,F.spineY+5,0),c:col(PID.firefly.c),s:3.2}],1));
+  G.firefly.anchor=V(0,F.spineY+5,0);
+  G.firefly.pose={t:V(-6,F.spineY*0.45,-4),r:MOBILE?260:190,phi:0.82,theta:null};
+})();
+
+/* =============================== labels =============================== */
+const labelsEl=$("#labels");
+PROJ.forEach(p=>{
+  const b=document.createElement("button");
+  b.className="lbl"; b.dataset.id=p.id; b.style.setProperty("--c",p.c);
+  b.setAttribute("aria-label",`${p.name}: ${p.where}. Open details`);
+  b.innerHTML=`<span class="p"></span><span class="t"><b>${p.name}</b><em>${p.where}</em></span>`;
+  b.addEventListener("click",e=>{e.stopPropagation();openPanel(p.id);});
+  labelsEl.appendChild(b); p.el=b;
+});
+
+/* =============================== camera rig =============================== */
+const HOME={t:V(MOBILE?0:6,MOBILE?14:18,MOBILE?-14:-24),r:MOBILE?215:200,phi:MOBILE?1.0:1.08};
+const cam={t:HOME.t.clone(),r:HOME.r,phi:HOME.phi,theta:0.62,ox:0,oy:0};
+let W=1,H=1;
+function homeOffset(){ return MOBILE?{ox:0,oy:-H*0.07}:{ox:-W*0.035,oy:-H*0.11}; }
+function panelOffset(){ return MOBILE?{ox:0,oy:H*0.24}:{ox:240,oy:-H*0.07}; }
+Object.assign(cam,homeOffset());
+let flight=null, lastInteract=-1e9, time=0, focused=null;
+
+const angDiff=(a,b)=>{let d=(b-a)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return d;};
+function poseFor(id){
+  if(!id) return Object.assign({t:HOME.t.clone(),r:HOME.r,phi:HOME.phi,theta:cam.theta},homeOffset());
+  const off=panelOffset();
+  if(id==="pubs"||id==="contact") return Object.assign({t:HOME.t.clone(),r:HOME.r*1.08,phi:0.92,theta:cam.theta},off);
+  const g=G[id], P=g.pose;
+  let th;
+  if(id==="gemini"){ const a1=Math.atan2(P.perp.x,P.perp.z), a2=a1+Math.PI; th=Math.abs(angDiff(cam.theta,a1))<Math.abs(angDiff(cam.theta,a2))?a1:a2; }
+  else if(id==="firefly") th=cam.theta+0.5;
+  else th=Math.atan2(P.t.x,P.t.z)+0.35;
+  return Object.assign({t:P.t.clone(),r:P.r,phi:P.phi,theta:th},off);
+}
+window.__fly=function(id){
+  focused=PID[id]?id:null;
+  const to=poseFor(id);
+  to.theta=cam.theta+angDiff(cam.theta,to.theta);
+  const from={t:cam.t.clone(),r:cam.r,phi:cam.phi,theta:cam.theta,ox:cam.ox,oy:cam.oy};
+  if(RM){ Object.assign(cam,to); cam.t=to.t; flight=null; requestRender(); return; }
+  const dist=from.t.distanceTo(to.t)+Math.abs(from.r-to.r);
+  flight={from,to,t0:time,dur:Math.min(2.6,1.3+dist/220)};
+  lastInteract=time;
+  kick();
+};
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function applyCamera(){
+  const s=Math.sin(cam.phi);
+  camera.position.set(cam.t.x+cam.r*s*Math.sin(cam.theta),cam.t.y+cam.r*Math.cos(cam.phi),cam.t.z+cam.r*s*Math.cos(cam.theta));
+  camera.lookAt(cam.t);
+  camera.setViewOffset(W,H,cam.ox,cam.oy,W,H);
+}
+
+/* input: drag orbit, wheel zoom, pinch zoom */
+const ptrs=new Map(); let pinch0=0, r0=0;
+canvas.addEventListener("pointerdown",e=>{
+  canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  canvas.classList.add("drag"); flight=null; lastInteract=time;
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y);r0=cam.r;}
+});
+canvas.addEventListener("pointermove",e=>{
+  const p=ptrs.get(e.pointerId); if(!p) return;
+  const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
+  if(ptrs.size===1){ cam.theta-=dx*0.0055; cam.phi=Math.max(0.28,Math.min(1.48,cam.phi-dy*0.0045)); }
+  else if(ptrs.size===2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch0>0)cam.r=Math.max(24,Math.min(420,r0*pinch0/d));}
+  lastInteract=time; requestRender();
+});
+const up=e=>{ptrs.delete(e.pointerId); if(!ptrs.size) canvas.classList.remove("drag"); pinch0=0; if(ptrs.size===1){r0=cam.r;}};
+canvas.addEventListener("pointerup",up); canvas.addEventListener("pointercancel",up);
+canvas.addEventListener("wheel",e=>{e.preventDefault();flight=null;cam.r=Math.max(24,Math.min(420,cam.r*Math.exp(e.deltaY*0.0012)));lastInteract=time;requestRender();},{passive:false});
+
+/* =============================== loop =============================== */
+function resize(){
+  W=innerWidth; H=innerHeight;
+  renderer.setSize(W,H,false);
+  camera.aspect=W/H;
+  camera.updateProjectionMatrix();
+  U.uScale.value=(H*DPR/2)/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+  if(!flight){ Object.assign(cam, current?panelOffset():homeOffset()); }
+  requestRender();
+}
+addEventListener("resize",resize);
+
+const tmp=new THREE.Vector3();
+const mastEl=document.querySelector(".mast"), h1El=document.querySelector(".mast h1");
+function mastBox(){ const r=(document.body.classList.contains("sheet")?h1El:mastEl).getBoundingClientRect(); return {r:r.right+12,b:r.bottom+8}; }
+function updateLabels(){
+  const mb=mastBox();
+  const reading=document.body.classList.contains("reading");
+  PROJ.forEach(p=>{
+    tmp.copy(G[p.id].anchor).project(camera);
+    const x=(tmp.x*0.5+0.5)*W, y=(-tmp.y*0.5+0.5)*H;
+    const limitX= MOBILE?W-20:(current?W-470:W-300);
+    const inMast=x<mb.r&&y<mb.b;
+    const vis=!inMast&&tmp.z<1&&tmp.z>-1&&x>-10&&x<limitX&&y>10&&y<(MOBILE&&current?H*0.36:H-20)&&!reading;
+    p.el.classList.toggle("hide",!vis);
+    if(vis){p.el.style.transform=`translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;}
+  });
+}
+const inten={}; PROJ.forEach(p=>inten[p.id]=1);
+function setIntensities(dt,instant){
+  PROJ.forEach(p=>{
+    const target= !focused?1:(focused===p.id?1.8:0.45);
+    inten[p.id]= instant?target: inten[p.id]+(target-inten[p.id])*Math.min(1,dt*3);
+    const I=inten[p.id];
+    G[p.id].lines.forEach(m=>m.material.opacity=Math.min(1,m.userData.base*I));
+    G[p.id].pts.forEach(m=>{ if(m.material.uniforms) m.material.uniforms.uI.value=I; });
+  });
+  const baseI=focused?0.62:1;
+  BASE_LINKS.forEach(m=>m.material.opacity=m.userData.base*baseI);
+  basePkObj.material.uniforms.uI.value=focused?0.7:1;
+}
+const PERIOD=5.2;
+function update(dt){
+  time+=dt;
+  U.uTime.value= RM?3.7:time;
+  if(flight){
+    const k=Math.min(1,(time-flight.t0)/flight.dur), e=ease(k), f=flight.from, t=flight.to;
+    cam.t.lerpVectors(f.t,t.t,e);
+    // arc out a little in radius for a cinematic swoop
+    cam.r=f.r+(t.r-f.r)*e+Math.sin(Math.PI*e)*Math.min(60,f.t.distanceTo(t.t)*0.35);
+    cam.phi=f.phi+(t.phi-f.phi)*e; cam.theta=f.theta+(t.theta-f.theta)*e;
+    cam.ox=f.ox+(t.ox-f.ox)*e; cam.oy=f.oy+(t.oy-f.oy)*e;
+    if(k>=1) flight=null;
+  } else if(!RM && !ptrs.size && time-lastInteract>2.2){
+    const sp=focused?0.018:0.045;
+    cam.theta+=dt*sp*Math.min(1,(time-lastInteract-2.2)/2.5+ (lastInteract<0?1:0));
+  }
+  // clock pulse
+  const ffBoost=focused==="firefly"?1.7:(focused?0.55:1);
+  let ph = RM?0.26:(time%PERIOD)/PERIOD;
+  const RR=ph*(MOBILE?330:420);
+  U.uRR.value=RR; U.uRA.value=Math.pow(1-ph,1.1)*ffBoost;
+  ffRings.forEach((m,i)=>{const s=Math.max(0.01,RR-(i?3:0));m.scale.set(s,1,s);});
+  if(hotSpineObj) hotSpineObj.material.uniforms.uMul.value=RM?1.1:1+0.28*Math.sin(time*3.4);
+  setIntensities(dt,RM);
+  const fogT=focused==="gemini"?FOG*0.6:FOG; U.uFog.value+= RM?(fogT-U.uFog.value):(fogT-U.uFog.value)*Math.min(1,dt*2); scene.fog.density=U.uFog.value;
+  ffRings[0].material.opacity=0.6*Math.pow(1-ph,1.4)*ffBoost; ffRings[1].material.opacity=0.32*Math.pow(1-ph,1.6)*ffBoost;
+  applyCamera();
+  updateLabels();
+}
+let running=false, last=0, pending=false;
+function frame(now){
+  if(document.hidden){running=false;return;}
+  const dt=Math.min(0.1,(now-last)/1000||0.016); last=now;
+  update(dt); renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+function kick(){ if(RM){requestRender();return;} if(!running&&!document.hidden){running=true;last=performance.now();requestAnimationFrame(frame);} }
+function requestRender(){
+  if(!RM){kick();return;}
+  if(pending) return; pending=true;
+  requestAnimationFrame(()=>{pending=false;update(0.016);renderer.render(scene,camera);});
+}
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) kick(); });
+lastInteract=-1e9;
+resize();
+update(0); renderer.render(scene,camera);
+kick();
+window.__scene={cam,G,openPanel};
+})();
+</script>
+</body>
 </html>
-
